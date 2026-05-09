@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "*.py"
-    }
-  },
   "rewrites": [
     { "source": "/chat", "destination": "/api/index" },
     { "source": "/commitments", "destination": "/api/index" },
