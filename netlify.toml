@@ -1,6 +1,6 @@
 [build]
   publish = "public"
-  command = "echo 'static only'"
+  command = "npm install"
 
 [functions]
   directory = "netlify/functions"
