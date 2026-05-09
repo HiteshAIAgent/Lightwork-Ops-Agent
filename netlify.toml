@@ -1,0 +1,35 @@
+[build]
+  publish = "static"
+
+# Proxy all API calls to Railway backend
+# Replace RAILWAY_URL with your actual Railway URL after deploying the backend
+
+[[redirects]]
+  from = "/chat"
+  to = "https://RAILWAY_URL/chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/commitments"
+  to = "https://RAILWAY_URL/commitments"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/commitments/*"
+  to = "https://RAILWAY_URL/commitments/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/alerts"
+  to = "https://RAILWAY_URL/alerts"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/alerts/*"
+  to = "https://RAILWAY_URL/alerts/:splat"
+  status = 200
+  force = true

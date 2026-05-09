@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LightWork AI — Ops Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f1f5f9; --surface: #fff; --surface2: #f8fafc; --border: #e2e8f0; --border2: #cbd5e1;
+      --text: #0f172a; --text2: #334155; --muted: #64748b;
+      --accent: #4AADE8; --accent-light: #ebf6fd; --accent-hover: #2d9bd5;
+      --green: #16a34a; --green-bg: #f0fdf4; --green-bd: #86efac;
+      --amber: #b45309; --amber-bg: #fffbeb; --amber-bd: #fcd34d;
+      --red: #dc2626;   --red-bg: #fef2f2;   --red-bd: #fca5a5;
+      --blue: #4AADE8;  --blue-bg: #ebf6fd;  --blue-bd: #a8d8f0;
+      --gray: #64748b;  --gray-bg: #f8fafc;  --gray-bd: #e2e8f0;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; font-size: 14px; }
+
+    /* SIDEBAR */
+    .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; display: none; }
+    .logo-icon svg { color: white; }
+    .logo-text { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .logo-text sup { font-size: 9px; font-weight: 600; color: var(--accent); vertical-align: super; }
+    .sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+    .nav-section { margin-bottom: 4px; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 500; transition: background .12s, color .12s; }
+    .nav-item:hover { background: var(--surface2); }
+    .nav-item.active { background: var(--accent); color: white; }
+    .nav-item svg { flex-shrink: 0; opacity: .7; }
+    .nav-item.active svg { opacity: 1; }
+    .nav-badges { margin-left: auto; display: flex; gap: 4px; }
+    .nav-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+    .nav-badge.risk  { background: #fee2e2; color: #dc2626; }
+    .nav-badge.alert { background: #fef3c7; color: #b45309; }
+    .nav-item.active .nav-badge { background: rgba(255,255,255,.25); color: white; }
+
+    /* MAIN */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { height: 52px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 20px; gap: 10px; flex-shrink: 0; }
+    .topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .topbar-spacer { flex: 1; }
+    .role-select { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); padding: 5px 10px; border-radius: 7px; cursor: pointer; outline: none; font-family: inherit; }
+    .topbar-btn { font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 7px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .15s; font-family: inherit; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-alert { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); position: relative; }
+    .btn-alert:hover { background: #fef9c3; }
+    .alert-dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; background: var(--red); border-radius: 50%; border: 2px solid var(--surface); display: none; }
+    .alert-dot.show { display: block; }
+
+    /* CONTENT */
+    .content { flex: 1; overflow-y: auto; padding: 20px; }
+
+    /* SUB-TABS */
+    .sub-tabs { display: flex; gap: 4px; margin-bottom: 18px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; width: fit-content; }
+    .sub-tab { padding: 5px 14px; font-size: 12px; font-weight: 500; color: var(--muted); border-radius: 6px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .sub-tab:hover { color: var(--text); }
+    .sub-tab.active { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.08); font-weight: 600; }
+    .sub-tab .cnt { font-size: 11px; margin-left: 4px; opacity: .7; }
+
+    /* METRICS */
+    .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .metric .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 8px; }
+    .metric .val { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
+    .metric .lbl { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+    .metric.green .dot { background: var(--green); }
+    .metric.amber .dot { background: #f59e0b; }
+    .metric.red .dot   { background: var(--red); }
+    .metric.blue .dot  { background: var(--blue); }
+    .metric.gray .dot  { background: var(--gray); }
+
+    /* SECTION */
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .section-title span { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 5px; }
+
+    /* TEAM HEALTH */
+    .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+    .health-row { display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-bottom: 1px solid var(--border); }
+    .health-row:last-child { border-bottom: none; }
+    .health-team { width: 110px; font-size: 13px; font-weight: 500; color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .health-team:hover { text-decoration: underline; }
+    .health-bar-wrap { flex: 1; background: var(--border); border-radius: 99px; height: 5px; overflow: hidden; }
+    .health-bar { height: 100%; border-radius: 99px; }
+    .health-stat { font-size: 12px; color: var(--muted); width: 90px; text-align: right; flex-shrink: 0; }
+    .health-badges { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* ACCORDION GROUP */
+    .group { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+    .group-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; transition: background .12s; }
+    .group-header:hover { background: var(--surface2); }
+    .group-chevron { font-size: 11px; color: var(--muted); transition: transform .2s; margin-left: auto; }
+    .group-chevron.open { transform: rotate(90deg); }
+    .group-team-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .group-body { padding: 0 12px 12px; display: none; }
+    .group-body.open { display: block; }
+    .group-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
+
+    /* FILTER BAR */
+    .filter-bar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn { font-size: 12px; padding: 5px 13px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all .15s; font-family: inherit; font-weight: 500; }
+    .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+    /* CARDS */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; transition: box-shadow .15s, border-color .15s; }
+    .card:hover { border-color: var(--border2); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .card-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+    .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 5px; letter-spacing: .02em; border: 1px solid transparent; }
+    .badge.priority-high   { background: var(--red-bg);   color: var(--red);   border-color: var(--red-bd); }
+    .badge.priority-medium { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-bd); }
+    .badge.priority-low    { background: var(--gray-bg);  color: var(--gray);  border-color: var(--gray-bd); }
+    .badge.status-on_track  { background: var(--green-bg); color: var(--green); border-color: var(--green-bd); }
+    .badge.status-at_risk   { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-bd); }
+    .badge.status-missed    { background: var(--red-bg);   color: var(--red);   border-color: var(--red-bd); }
+    .badge.status-completed { background: var(--blue-bg);  color: var(--blue);  border-color: var(--blue-bd); }
+    .badge.status-no_update { background: var(--gray-bg);  color: var(--gray);  border-color: var(--gray-bd); }
+    .card-deadline { font-size: 11px; color: var(--muted); white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+    .card-deadline.overdue { color: var(--red); }
+    .card-deadline.soon    { color: #b45309; }
+    .card-desc { font-size: 13px; color: var(--text); line-height: 1.45; margin-bottom: 8px; font-weight: 500; }
+    .card-owner { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+    .avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; background: var(--accent-light); color: var(--accent); flex-shrink: 0; border: 1px solid var(--blue-bd); }
+    .owner-name { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .team-tag { margin-left: auto; font-size: 11px; color: var(--accent); background: var(--accent-light); padding: 2px 8px; border-radius: 5px; font-weight: 500; }
+    .card-notes { font-size: 12px; color: var(--text2); line-height: 1.55; background: var(--surface2); border-radius: 7px; padding: 8px 10px; border-left: 3px solid var(--border2); }
+    .card-notes.risk   { border-left-color: #f59e0b; }
+    .card-notes.missed { border-left-color: var(--red); }
+    .dep-link { font-size: 11px; padding: 6px 9px; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 5px; flex-wrap: wrap; line-height: 1.5; }
+    .dep-blocked { background: #fff7ed; color: #92400e; border: 1px solid #fcd34d; }
+    .dep-ok      { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+    .dep-blocking { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); flex-direction: column; gap: 4px; }
+    .dep-chip { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 5px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text2); margin: 1px; transition: border-color .12s; }
+    .dep-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .dep-chip-at_risk  { border-color: var(--amber-bd); background: var(--amber-bg); color: var(--amber); }
+    .dep-chip-missed   { border-color: var(--red-bd);   background: var(--red-bg);   color: var(--red); }
+    .dep-chip-on_track { border-color: var(--green-bd); background: var(--green-bg); color: var(--green); }
+    .empty { text-align: center; padding: 40px 0; color: var(--muted); font-size: 14px; }
+    .card-footer { display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .card-update-btn { font-size: 11px; font-weight: 500; color: var(--muted); background: none; border: 1px solid var(--border); padding: 4px 11px; border-radius: 6px; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .card-update-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .status-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .status-btn { padding: 8px; text-align: center; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); cursor: pointer; transition: all .15s; }
+    .status-btn:hover { border-color: var(--border2); }
+    .status-btn.sel-on_track  { background: var(--green-bg); color: var(--green); border-color: var(--green-bd); }
+    .status-btn.sel-at_risk   { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-bd); }
+    .status-btn.sel-missed    { background: var(--red-bg);   color: var(--red);   border-color: var(--red-bd); }
+    .status-btn.sel-completed { background: var(--blue-bg);  color: var(--blue);  border-color: var(--blue-bd); }
+    .modal-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .modal-divider::before, .modal-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* ALERT BANNER */
+    .alert-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .alert-banner-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .alert-banner-from { font-size: 11px; font-weight: 600; color: var(--amber); text-transform: uppercase; letter-spacing: .05em; }
+    .alert-banner-time { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .alert-banner-msg { font-size: 13px; color: var(--text2); line-height: 1.55; margin-bottom: 10px; }
+    .alert-banner-actions { display: flex; gap: 8px; align-items: center; }
+    .alert-respond-input { flex: 1; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; outline: none; font-family: inherit; background: var(--surface); }
+    .alert-respond-input:focus { border-color: var(--accent); }
+    .alert-btn { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; }
+    .alert-btn-send { background: var(--amber); color: white; }
+    .alert-btn-send:hover { background: #92400e; }
+    .alert-resolved { font-size: 12px; color: var(--green); font-weight: 600; }
+
+    /* CHAT SIDEBAR */
+    .chat-sidebar { width: 300px; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface); flex-shrink: 0; }
+    .chat-header { padding: 0 16px; height: 52px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .chat-online-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-hint { text-align: center; padding: 4px 4px 8px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .chat-chips { display: flex; flex-direction: column; gap: 6px; }
+    .chat-chip { font-size: 12px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); color: var(--text2); cursor: pointer; text-align: left; background: var(--surface2); font-family: inherit; font-weight: 500; transition: all .15s; }
+    .chat-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .cmsg { display: flex; gap: 8px; }
+    .cmsg.user { flex-direction: row-reverse; }
+    .cavatar { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+    .cmsg.user .cavatar  { background: var(--accent); color: white; }
+    .cmsg.agent .cavatar { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+    .cbubble { padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.6; max-width: calc(100% - 34px); word-break: break-word; }
+    .cmsg.user .cbubble  { background: var(--accent); color: white; border-bottom-right-radius: 3px; }
+    .cmsg.agent .cbubble { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-bottom-left-radius: 3px; }
+    .cbubble p { margin-bottom: 6px; } .cbubble p:last-child { margin-bottom: 0; }
+    .cbubble ul, .cbubble ol { padding-left: 16px; margin-bottom: 6px; }
+    .cbubble li { margin-bottom: 3px; }
+    .cbubble strong { font-weight: 600; }
+    .cbubble code { font-size: 12px; background: rgba(0,0,0,.07); padding: 1px 4px; border-radius: 3px; font-family: monospace; }
+    .cbubble h1,.cbubble h2,.cbubble h3 { font-size: 13px; font-weight: 700; margin: 8px 0 4px; }
+    .thinking { display: flex; gap: 4px; padding: 4px 2px; }
+    .thinking span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
+    .thinking span:nth-child(2) { animation-delay: .2s; }
+    .thinking span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-4px);opacity:1} }
+    .chat-input-area { padding: 12px; border-top: 1px solid var(--border); }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; padding: 8px 11px; resize: none; outline: none; min-height: 36px; max-height: 100px; line-height: 1.5; transition: border-color .15s; font-family: inherit; }
+    .chat-input:focus { border-color: var(--accent); }
+    .chat-input::placeholder { color: #94a3b8; }
+    .send-btn { width: 36px; height: 36px; border-radius: 8px; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s; }
+    .send-btn:hover { background: var(--accent-hover); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--surface); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.15); width: 100%; max-width: 480px; max-height: 90dvh; overflow-y: auto; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .modal-close { background: none; border: none; font-size: 18px; color: var(--muted); cursor: pointer; padding: 0 4px; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+    .form-label .req { color: var(--red); }
+    .form-input, .form-select, .form-textarea { width: 100%; font-size: 13px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; outline: none; background: var(--surface); color: var(--text); font-family: inherit; transition: border-color .15s; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+    .form-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+    .form-hint { font-size: 11px; color: var(--muted); }
+    .priority-btns { display: flex; gap: 6px; }
+    .priority-btn { flex: 1; padding: 7px; text-align: center; font-size: 12px; font-weight: 600; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); cursor: pointer; transition: all .15s; }
+    .priority-btn.sel-high   { background: var(--red-bg);   color: var(--red);   border-color: var(--red-bd); }
+    .priority-btn.sel-medium { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-bd); }
+    .priority-btn.sel-low    { background: var(--gray-bg);  color: var(--gray);  border-color: var(--gray-bd); }
+    .team-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .team-chip { padding: 6px 13px; font-size: 12px; font-weight: 500; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; transition: all .15s; user-select: none; }
+    .team-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .team-chip.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .owner-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; min-height: 28px; }
+    .owner-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border-radius: 99px; background: var(--accent-light); border: 1px solid var(--blue-bd); color: var(--accent); cursor: pointer; font-weight: 500; transition: background .12s; }
+    .owner-pill:hover { background: #dbeafe; }
+    .owner-pill.added { background: var(--accent); color: white; border-color: var(--accent); }
+    .owner-pill.added::after { content: ' ✓'; font-size: 10px; }
+    .btn-cancel { font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; font-family: inherit; }
+    .btn-submit { font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; font-family: inherit; }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .btn-submit.amber { background: var(--amber); }
+    .btn-submit.amber:hover { background: #92400e; }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/logo.png" alt="LightWork AI" style="height:28px;width:auto;display:block;" />
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" id="nav-Company" onclick="switchTab('Company')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Company
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Teams</div>
+      <div class="nav-item" id="nav-Engineering" onclick="switchTab('Engineering')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Engineering
+        <div class="nav-badges" id="badges-Engineering"></div>
+      </div>
+      <div class="nav-item" id="nav-Product" onclick="switchTab('Product')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Product
+        <div class="nav-badges" id="badges-Product"></div>
+      </div>
+      <div class="nav-item" id="nav-Commercial" onclick="switchTab('Commercial')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Commercial
+        <div class="nav-badges" id="badges-Commercial"></div>
+      </div>
+      <div class="nav-item" id="nav-Operations" onclick="switchTab('Operations')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Operations
+        <div class="nav-badges" id="badges-Operations"></div>
+      </div>
+    </div>
+  </nav>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Company Dashboard</div>
+    <div class="topbar-spacer"></div>
+    <select class="role-select" id="role-select">
+      <option>Founder's Associate</option>
+      <option>CEO</option>
+      <option>Reviewer</option>
+    </select>
+    <button class="topbar-btn btn-alert" onclick="openAlertModal()" title="Send alert to a team">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alert
+      <div class="alert-dot" id="alert-dot"></div>
+    </button>
+    <button class="topbar-btn btn-primary" onclick="openAddTaskModal()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Task
+    </button>
+  </div>
+  <div class="content" id="content"><div class="empty">Loading…</div></div>
+</div>
+
+<!-- CHAT -->
+<div class="chat-sidebar">
+  <div class="chat-header">
+    <div class="chat-online-dot"></div>
+    Ops Assistant
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-hint">Ask about tasks, owners, blockers, or status.</div>
+    <div class="chat-chips">
+      <button class="chat-chip" onclick="quickSend(this.textContent)">What is pending for Marcus Williams?</button>
+      <button class="chat-chip" onclick="quickSend(this.textContent)">Give me the weekly summary</button>
+      <button class="chat-chip" onclick="quickSend(this.textContent)">What's blocking Commercial this week?</button>
+      <button class="chat-chip" onclick="quickSend(this.textContent)">Check for stale commitments</button>
+    </div>
+  </div>
+  <div class="chat-input-area">
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" placeholder="Ask or add a task…" rows="1"></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendChat()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Task -->
+<div class="modal-overlay" id="modal-task">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Task</div>
+      <button class="modal-close" onclick="closeModal('modal-task')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Description <span class="req">*</span></label>
+        <textarea class="form-textarea" id="task-desc" placeholder="What needs to be delivered?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Teams <span class="req">*</span> <span style="font-weight:400;color:var(--muted)">— select all that apply</span></label>
+        <div class="team-chips">
+          <div class="team-chip" data-team="Engineering" onclick="toggleTeamChip(this)">Engineering</div>
+          <div class="team-chip" data-team="Product" onclick="toggleTeamChip(this)">Product</div>
+          <div class="team-chip" data-team="Commercial" onclick="toggleTeamChip(this)">Commercial</div>
+          <div class="team-chip" data-team="Operations" onclick="toggleTeamChip(this)">Operations</div>
+        </div>
+        <div class="form-hint" id="task-teams-hint">Task will be created in each selected team's dashboard.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Deadline <span class="req">*</span></label>
+        <input type="date" class="form-input" id="task-deadline" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Owner(s)</label>
+        <input type="text" class="form-input" id="task-owner" placeholder="e.g. Marcus Williams, Priya Patel" />
+        <div class="owner-pills" id="owner-suggestions"></div>
+        <div class="form-hint">Click a name to add, or type directly above.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <div class="priority-btns">
+          <div class="priority-btn sel-high" id="prio-high" onclick="selectPriority('high')">High</div>
+          <div class="priority-btn" id="prio-medium" onclick="selectPriority('medium')">Medium</div>
+          <div class="priority-btn" id="prio-low" onclick="selectPriority('low')">Low</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Blocked by (optional)</label>
+        <select class="form-select" id="task-depends">
+          <option value="">None</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="task-notes" placeholder="Any context or blockers…" style="min-height:56px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:12px;color:var(--muted);margin-right:auto;align-self:center" id="task-modal-hint"></div>
+      <button class="btn-cancel" onclick="closeModal('modal-task')">Cancel</button>
+      <button class="btn-submit" onclick="submitTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Send Alert -->
+<div class="modal-overlay" id="modal-alert">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Send Alert</div>
+      <button class="modal-close" onclick="closeModal('modal-alert')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">To Team <span class="req">*</span></label>
+        <select class="form-select" id="alert-team">
+          <option value="">Select team…</option>
+          <option>Engineering</option>
+          <option>Product</option>
+          <option>Commercial</option>
+          <option>Operations</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message <span class="req">*</span></label>
+        <textarea class="form-textarea" id="alert-message" placeholder="What do you need from this team? Be specific about the issue and the response you expect."></textarea>
+      </div>
+      <div class="form-hint" style="padding:0">Sent as: <strong id="alert-from-label">Founder's Associate</strong></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-alert')">Cancel</button>
+      <button class="btn-submit amber" onclick="submitAlert()">Send Alert</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Update Task -->
+<div class="modal-overlay" id="modal-update">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Update Task</div>
+      <button class="modal-close" onclick="closeModal('modal-update')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--muted);line-height:1.5;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)" id="update-task-desc"></div>
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <div class="status-btns">
+          <div class="status-btn" id="sbtn-on_track"  onclick="selectStatus('on_track')">🟢 On Track</div>
+          <div class="status-btn" id="sbtn-at_risk"   onclick="selectStatus('at_risk')">⚠️ At Risk</div>
+          <div class="status-btn" id="sbtn-missed"    onclick="selectStatus('missed')">🔴 Missed</div>
+          <div class="status-btn" id="sbtn-completed" onclick="selectStatus('completed')">✅ Completed</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Comment / Update</label>
+        <textarea class="form-textarea" id="update-notes" placeholder="What's the latest? Any blockers, progress, or context…"></textarea>
+      </div>
+
+      <div class="modal-divider">Edit fields</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Owner(s)</label>
+          <input type="text" class="form-input" id="update-owner" placeholder="Name(s)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deadline</label>
+          <input type="date" class="form-input" id="update-deadline" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <div class="priority-btns">
+          <div class="priority-btn" id="uprio-high"   onclick="selectUpdatePriority('high')">High</div>
+          <div class="priority-btn" id="uprio-medium" onclick="selectUpdatePriority('medium')">Medium</div>
+          <div class="priority-btn" id="uprio-low"    onclick="selectUpdatePriority('low')">Low</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-update')">Cancel</button>
+      <button class="btn-submit" onclick="submitUpdate()">Save Update</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEAMS = ['Company','Engineering','Product','Commercial','Operations'];
+const STATUS_LABELS = { on_track:'On Track', at_risk:'At Risk', missed:'Missed', completed:'Completed', no_update:'No Update' };
+const TEAM_MEMBERS = {
+  Engineering: ['Sarah Chen','Marcus Williams','Priya Patel','Tom Bradley'],
+  Product: ['James O\'Brien','Lisa Park','Arun Sharma'],
+  Commercial: ['Alex Rivera','Sophie Turner','Ben Clarke'],
+  Operations: ['David Kim','Rachel Green','Nina Patel'],
+};
+
+let allData = [], allAlerts = [], currentTab = 'Company', currentFilter = 'all';
+let companySubTab = 'overview', openGroups = {};
+let chatHistory = [], chatBusy = false;
+let selectedPriority = 'high';
+
+// ── DATA ─────────────────────────────────────────────────────────────────────
+async function loadData() {
+  const [cmts, alerts] = await Promise.all([
+    fetch('/commitments').then(r => r.json()).catch(() => []),
+    fetch('/alerts').then(r => r.json()).catch(() => []),
+  ]);
+  allData = cmts;
+  allAlerts = alerts;
+  updateNavBadges();
+  updateAlertDot();
+  renderContent();
+}
+
+function updateNavBadges() {
+  ['Engineering','Product','Commercial','Operations'].forEach(t => {
+    const el = document.getElementById('badges-' + t);
+    if (!el) return;
+    el.innerHTML = '';
+    const risks = allData.filter(d => d.team === t && (d.latest_status === 'at_risk' || d.latest_status === 'missed')).length;
+    const alerts = allAlerts.filter(a => a.to_team === t).length;
+    if (risks)  el.innerHTML += `<span class="nav-badge risk">${risks}</span>`;
+    if (alerts) el.innerHTML += `<span class="nav-badge alert">${alerts}</span>`;
+  });
+}
+
+function updateAlertDot() {
+  document.getElementById('alert-dot').classList.toggle('show', allAlerts.length > 0);
+}
+
+// ── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab; currentFilter = 'all';
+  TEAMS.forEach(t => document.getElementById('nav-' + t)?.classList.toggle('active', t === tab));
+  document.getElementById('topbar-title').textContent = tab === 'Company' ? 'Company Dashboard' : tab;
+  renderContent();
+}
+
+function renderContent() {
+  currentTab === 'Company' ? renderCompany() : renderTeam(currentTab);
+}
+
+// ── COMPANY ──────────────────────────────────────────────────────────────────
+function renderCompany() {
+  const d = allData;
+  const counts = { on_track:0, at_risk:0, missed:0, completed:0, no_update:0 };
+  d.forEach(x => counts[x.latest_status] = (counts[x.latest_status]||0) + 1);
+
+  const subTabs = [
+    { id:'overview', label:'Overview' },
+    { id:'on_track', label:'On Track', cnt: counts.on_track },
+    { id:'at_risk',  label:'At Risk',  cnt: counts.at_risk  },
+    { id:'missed',   label:'Missed',   cnt: counts.missed   },
+  ];
+
+  let html = `<div class="sub-tabs">` +
+    subTabs.map(s => `<div class="sub-tab ${companySubTab===s.id?'active':''}" onclick="setCompanySubTab('${s.id}')">
+      ${s.label}${s.cnt != null ? `<span class="cnt">${s.cnt}</span>` : ''}
+    </div>`).join('') +
+  `</div>`;
+
+  if (companySubTab === 'overview') {
+    html += `<div class="metrics">
+      <div class="metric gray"><div class="dot"></div><div class="val">${d.length}</div><div class="lbl">Total</div></div>
+      <div class="metric green"><div class="dot"></div><div class="val">${counts.on_track}</div><div class="lbl">On Track</div></div>
+      <div class="metric amber"><div class="dot"></div><div class="val">${counts.at_risk}</div><div class="lbl">At Risk</div></div>
+      <div class="metric red"><div class="dot"></div><div class="val">${counts.missed}</div><div class="lbl">Missed</div></div>
+      <div class="metric blue"><div class="dot"></div><div class="val">${counts.completed}</div><div class="lbl">Completed</div></div>
+    </div>`;
+
+    const atRisk = d.filter(x => x.latest_status === 'at_risk' || x.latest_status === 'missed')
+                    .sort((a,b) => (['high','medium','low'].indexOf(a.priority)) - (['high','medium','low'].indexOf(b.priority)));
+    if (atRisk.length) {
+      html += `<div class="section-head"><div class="section-title">Needs Attention <span>${atRisk.length} items</span></div></div>
+               <div class="cards" style="margin-bottom:24px">${atRisk.map(c => cardHTML(c, true)).join('')}</div>`;
+    }
+
+    html += `<div class="section-head"><div class="section-title">Team Health</div></div><div class="health-card">`;
+    ['Engineering','Product','Commercial','Operations'].forEach(team => {
+      const items = d.filter(x => x.team === team);
+      const on = items.filter(x => x.latest_status === 'on_track').length;
+      const risks = items.filter(x => x.latest_status === 'at_risk').length;
+      const missed = items.filter(x => x.latest_status === 'missed').length;
+      const pct = items.length ? Math.round(on / items.length * 100) : 0;
+      const color = pct >= 75 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#dc2626';
+      html += `<div class="health-row">
+        <div class="health-team" onclick="switchTab('${team}')">${team}</div>
+        <div class="health-bar-wrap"><div class="health-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="health-stat">${on}/${items.length} on track</div>
+        <div class="health-badges">
+          ${risks  ? `<span class="badge status-at_risk">${risks} at risk</span>` : ''}
+          ${missed ? `<span class="badge status-missed">${missed} missed</span>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    // status sub-tab: grouped by team accordion
+    const statusItems = d.filter(x => x.latest_status === companySubTab)
+                         .sort((a,b) => (['high','medium','low'].indexOf(a.priority)) - (['high','medium','low'].indexOf(b.priority)));
+    if (!statusItems.length) {
+      html += `<div class="empty">No ${STATUS_LABELS[companySubTab]?.toLowerCase()} tasks.</div>`;
+    } else {
+      ['Engineering','Product','Commercial','Operations'].forEach(team => {
+        const items = statusItems.filter(x => x.team === team);
+        if (!items.length) return;
+        const key = `${companySubTab}-${team}`;
+        if (!(key in openGroups)) openGroups[key] = true;
+        const isOpen = openGroups[key];
+        html += `<div class="group">
+          <div class="group-header" onclick="toggleGroup('${key}')">
+            <span class="group-team-name">${team}</span>
+            <span class="badge status-${companySubTab}">${items.length} ${STATUS_LABELS[companySubTab]}</span>
+            <span class="group-chevron ${isOpen?'open':''}">▶</span>
+          </div>
+          <div class="group-body ${isOpen?'open':''}">
+            <div class="group-cards">${items.map(c => cardHTML(c, false)).join('')}</div>
+          </div>
+        </div>`;
+      });
+    }
+  }
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function setCompanySubTab(id) { companySubTab = id; renderCompany(); }
+function toggleGroup(key) {
+  openGroups[key] = !openGroups[key];
+  const headers = document.querySelectorAll('.group-header');
+  headers.forEach(h => {
+    if (h.getAttribute('onclick') === `toggleGroup('${key}')`) {
+      h.querySelector('.group-chevron').classList.toggle('open', openGroups[key]);
+      h.nextElementSibling.classList.toggle('open', openGroups[key]);
+    }
+  });
+}
+
+// ── TEAM TAB ─────────────────────────────────────────────────────────────────
+function renderTeam(team) {
+  const teamAlerts = allAlerts.filter(a => a.to_team === team);
+  const items = allData.filter(d => d.team === team);
+  const statusOrder = ['all','at_risk','missed','on_track','completed','no_update'];
+  const present = ['all', ...statusOrder.slice(1).filter(s => items.some(d => d.latest_status === s))];
+
+  let filtered = currentFilter === 'all' ? items : items.filter(d => d.latest_status === currentFilter);
+  filtered = [...filtered].sort((a,b) => (['high','medium','low'].indexOf(a.priority)) - (['high','medium','low'].indexOf(b.priority)) || a.deadline.localeCompare(b.deadline));
+
+  let html = '';
+
+  // Alert banners
+  if (teamAlerts.length) {
+    html += `<div style="margin-bottom:16px">`;
+    teamAlerts.forEach(a => {
+      const t = new Date(a.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      html += `<div class="alert-banner">
+        <div class="alert-banner-head">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="alert-banner-from">${a.from_role}</span>
+          <span class="alert-banner-time">${t}</span>
+        </div>
+        <div class="alert-banner-msg">${a.message}</div>
+        <div class="alert-banner-actions">
+          <input class="alert-respond-input" id="alert-reply-${a.id}" placeholder="Type your response…" />
+          <button class="alert-btn alert-btn-send" onclick="respondAlert(${a.id})">Respond</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Filter bar
+  html += `<div class="filter-bar">`;
+  present.forEach(s => {
+    const label = s === 'all' ? 'All' : STATUS_LABELS[s];
+    const cnt = s === 'all' ? items.length : items.filter(d => d.latest_status === s).length;
+    html += `<button class="filter-btn ${currentFilter===s?'active':''}" onclick="setFilter('${s}')">${label} · ${cnt}</button>`;
+  });
+  html += `</div>`;
+
+  html += filtered.length
+    ? `<div class="cards">${filtered.map(c => cardHTML(c, false)).join('')}</div>`
+    : `<div class="empty">No items match this filter.</div>`;
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function setFilter(f) { currentFilter = f; renderContent(); }
+
+async function respondAlert(id) {
+  const input = document.getElementById('alert-reply-' + id);
+  const text = input?.value.trim();
+  if (!text) return;
+  await fetch(`/alerts/${id}/respond`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({response: text}) });
+  await loadData();
+}
+
+// ── CARD ─────────────────────────────────────────────────────────────────────
+function cardHTML(c, showTeam) {
+  const dl = deadlineInfo(c.deadline);
+  const initials = (c.owner||'?').split(/[,\s]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const noteClass = c.latest_status === 'at_risk' ? 'risk' : c.latest_status === 'missed' ? 'missed' : '';
+
+  let depHTML = '';
+  if (c.dep_description) {
+    const isBlocked = c.dep_status === 'at_risk' || c.dep_status === 'missed';
+    depHTML = `<div class="dep-link ${isBlocked?'dep-blocked':'dep-ok'}">
+      ${isBlocked?'⚠':'↑'} Blocked by <strong>[${c.dep_team}]</strong> ${c.dep_description}
+      <span class="badge status-${c.dep_status}" style="margin-left:4px">${STATUS_LABELS[c.dep_status]||c.dep_status}</span>
+    </div>`;
+  }
+
+  const blocking = allData.filter(d => d.depends_on === c.id);
+  let blockingHTML = '';
+  if (blocking.length) {
+    blockingHTML = `<div class="dep-link dep-blocking">↓ Blocking: ${blocking.map(b =>
+      `<span onclick="switchTab('${b.team}')" class="dep-chip dep-chip-${b.latest_status}">[${b.team}] ${b.description.length>40?b.description.slice(0,40)+'…':b.description}</span>`
+    ).join('')}</div>`;
+  }
+
+  return `<div class="card">
+    <div class="card-top">
+      <div class="card-badges">
+        <span class="badge priority-${c.priority}">${c.priority.toUpperCase()}</span>
+        <span class="badge status-${c.latest_status}">${STATUS_LABELS[c.latest_status]||c.latest_status}</span>
+      </div>
+      <div class="card-deadline ${dl.overdue?'overdue':dl.soon?'soon':''}">${dl.label}</div>
+    </div>
+    <div class="card-desc">${c.description}</div>
+    <div class="card-owner">
+      <div class="avatar">${initials}</div>
+      <div class="owner-name">${c.owner||'Unassigned'}</div>
+      ${showTeam ? `<span class="team-tag">${c.team}</span>` : ''}
+    </div>
+    ${depHTML}${blockingHTML}
+    ${c.latest_notes ? `<div class="card-notes ${noteClass}">${c.latest_notes}</div>` : ''}
+    <div class="card-footer">
+      <button class="card-update-btn" onclick="openUpdateModal(${c.id})">Update</button>
+    </div>
+  </div>`;
+}
+
+function deadlineInfo(deadline) {
+  const due = new Date(deadline+'T00:00:00'), today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((due-today)/86400000);
+  const ds = due.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const tag = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'today' : `${diff}d`;
+  return { label:`${ds} · ${tag}`, overdue: diff<0, soon: diff>=0 && diff<=5 };
+}
+
+// ── ADD TASK MODAL ────────────────────────────────────────────────────────────
+function openAddTaskModal(preTeam) {
+  selectedPriority = 'high';
+  ['high','medium','low'].forEach(p => {
+    document.getElementById('prio-'+p).className = 'priority-btn' + (p==='high' ? ' sel-high' : '');
+  });
+  document.getElementById('task-desc').value = '';
+  document.getElementById('task-owner').value = '';
+  document.getElementById('task-notes').value = '';
+  document.getElementById('task-deadline').value = '';
+  document.getElementById('task-modal-hint').textContent = '';
+
+  // Reset team chips
+  document.querySelectorAll('.team-chip').forEach(el => {
+    el.classList.remove('selected');
+    if (preTeam && el.dataset.team === preTeam) el.classList.add('selected');
+    if (!preTeam && currentTab !== 'Company' && el.dataset.team === currentTab) el.classList.add('selected');
+  });
+
+  const depSel = document.getElementById('task-depends');
+  depSel.innerHTML = '<option value="">None</option>';
+  allData.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `#${c.id} [${c.team}] ${c.description.slice(0,50)}`;
+    depSel.appendChild(opt);
+  });
+
+  refreshOwnerSuggestions();
+  openModal('modal-task');
+}
+
+function toggleTeamChip(el) {
+  el.classList.toggle('selected');
+  refreshOwnerSuggestions();
+}
+
+function refreshOwnerSuggestions() {
+  const selectedTeams = [...document.querySelectorAll('.team-chip.selected')].map(el => el.dataset.team);
+  const container = document.getElementById('owner-suggestions');
+  container.innerHTML = '';
+  const seen = new Set();
+  selectedTeams.forEach(team => {
+    (TEAM_MEMBERS[team] || []).forEach(name => {
+      if (seen.has(name)) return;
+      seen.add(name);
+      const pill = document.createElement('div');
+      pill.className = 'owner-pill';
+      pill.textContent = name;
+      pill.dataset.name = name;
+      pill.onclick = () => toggleOwnerPill(pill, name);
+      // mark as added if already in input
+      const current = document.getElementById('task-owner').value;
+      if (current.split(',').map(s=>s.trim()).includes(name)) pill.classList.add('added');
+      container.appendChild(pill);
+    });
+  });
+}
+
+function toggleOwnerPill(pill, name) {
+  const input = document.getElementById('task-owner');
+  let names = input.value.split(',').map(s => s.trim()).filter(Boolean);
+  if (names.includes(name)) {
+    names = names.filter(n => n !== name);
+    pill.classList.remove('added');
+  } else {
+    names.push(name);
+    pill.classList.add('added');
+  }
+  input.value = names.join(', ');
+}
+
+function selectPriority(p) {
+  selectedPriority = p;
+  ['high','medium','low'].forEach(x => {
+    document.getElementById('prio-'+x).className = 'priority-btn' + (x===p ? ` sel-${x}` : '');
+  });
+}
+
+async function submitTask() {
+  const desc     = document.getElementById('task-desc').value.trim();
+  const deadline = document.getElementById('task-deadline').value;
+  const teams    = [...document.querySelectorAll('.team-chip.selected')].map(el => el.dataset.team);
+  if (!desc || !teams.length || !deadline) {
+    document.getElementById('task-modal-hint').textContent = 'Description, at least one team, and deadline are required.';
+    return;
+  }
+
+  const depVal = document.getElementById('task-depends').value;
+  const payload = {
+    description: desc, deadline,
+    owner: document.getElementById('task-owner').value.trim(),
+    priority: selectedPriority,
+    depends_on: depVal ? parseInt(depVal) : null,
+    notes: document.getElementById('task-notes').value.trim(),
+  };
+
+  await Promise.all(teams.map(team =>
+    fetch('/commitments', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ...payload, team }),
+    })
+  ));
+
+  closeModal('modal-task');
+  await loadData();
+}
+
+// ── UPDATE MODAL ─────────────────────────────────────────────────────────────
+let updateTargetId = null;
+let selectedUpdateStatus = null;
+let selectedUpdatePriority = null;
+
+function openUpdateModal(id) {
+  const c = allData.find(x => x.id === id);
+  if (!c) return;
+  updateTargetId = id;
+
+  document.getElementById('update-task-desc').textContent = `#${c.id} · ${c.description}`;
+  document.getElementById('update-notes').value = '';
+  document.getElementById('update-owner').value = c.owner || '';
+  document.getElementById('update-deadline').value = c.deadline || '';
+
+  // pre-select current status
+  selectedUpdateStatus = c.latest_status !== 'no_update' ? c.latest_status : null;
+  ['on_track','at_risk','missed','completed'].forEach(s => {
+    document.getElementById('sbtn-'+s).className = 'status-btn' + (s === selectedUpdateStatus ? ` sel-${s}` : '');
+  });
+
+  // pre-select current priority
+  selectedUpdatePriority = c.priority || 'medium';
+  ['high','medium','low'].forEach(p => {
+    document.getElementById('uprio-'+p).className = 'priority-btn' + (p === selectedUpdatePriority ? ` sel-${p}` : '');
+  });
+
+  openModal('modal-update');
+}
+
+function selectStatus(s) {
+  selectedUpdateStatus = s;
+  ['on_track','at_risk','missed','completed'].forEach(x => {
+    document.getElementById('sbtn-'+x).className = 'status-btn' + (x===s ? ` sel-${x}` : '');
+  });
+}
+
+function selectUpdatePriority(p) {
+  selectedUpdatePriority = p;
+  ['high','medium','low'].forEach(x => {
+    document.getElementById('uprio-'+x).className = 'priority-btn' + (x===p ? ` sel-${p}` : '');
+  });
+}
+
+async function submitUpdate() {
+  if (!updateTargetId) return;
+  const c = allData.find(x => x.id === updateTargetId);
+
+  const payload = {
+    status:   selectedUpdateStatus || undefined,
+    notes:    document.getElementById('update-notes').value.trim() || undefined,
+    owner:    document.getElementById('update-owner').value.trim(),
+    deadline: document.getElementById('update-deadline').value || undefined,
+    priority: selectedUpdatePriority !== c?.priority ? selectedUpdatePriority : undefined,
+  };
+
+  await fetch(`/commitments/${updateTargetId}`, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload),
+  });
+  closeModal('modal-update');
+  await loadData();
+}
+
+// ── ALERT MODAL ───────────────────────────────────────────────────────────────
+function openAlertModal(preTeam) {
+  document.getElementById('alert-message').value = '';
+  document.getElementById('alert-team').value = preTeam || '';
+  document.getElementById('alert-from-label').textContent = document.getElementById('role-select').value;
+  openModal('modal-alert');
+}
+
+async function submitAlert() {
+  const team = document.getElementById('alert-team').value;
+  const msg  = document.getElementById('alert-message').value.trim();
+  if (!team || !msg) { alert('Team and message are required.'); return; }
+  await fetch('/alerts', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ from_role: document.getElementById('role-select').value, to_team: team, message: msg })
+  });
+  closeModal('modal-alert');
+  await loadData();
+  switchTab(team);
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ── CHAT ─────────────────────────────────────────────────────────────────────
+const chatEl  = document.getElementById('chat-messages');
+const inputEl = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+
+inputEl.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();} });
+inputEl.addEventListener('input', () => { inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,100)+'px'; });
+function quickSend(t) { inputEl.value=t; sendChat(); }
+
+function clearHints() { chatEl.querySelector('.chat-hint')?.remove(); chatEl.querySelector('.chat-chips')?.remove(); }
+
+function addCMsg(role, text) {
+  clearHints();
+  const wrap = document.createElement('div'); wrap.className=`cmsg ${role}`;
+  const av = document.createElement('div'); av.className='cavatar'; av.textContent=role==='user'?'H':'AI';
+  const bub = document.createElement('div'); bub.className='cbubble';
+  if (role === 'agent') bub.innerHTML = marked.parse(text);
+  else bub.textContent = text;
+  wrap.appendChild(av); wrap.appendChild(bub);
+  chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight;
+}
+
+function addThinking() {
+  clearHints();
+  const wrap = document.createElement('div'); wrap.className='cmsg agent'; wrap.id='thinking';
+  const av = document.createElement('div'); av.className='cavatar'; av.textContent='AI';
+  const bub = document.createElement('div'); bub.className='cbubble thinking';
+  bub.innerHTML='<span></span><span></span><span></span>';
+  wrap.appendChild(av); wrap.appendChild(bub); chatEl.appendChild(wrap); chatEl.scrollTop=chatEl.scrollHeight;
+}
+
+async function sendChat() {
+  const text = inputEl.value.trim();
+  if(!text||chatBusy) return;
+  chatBusy=true; sendBtn.disabled=true;
+  inputEl.value=''; inputEl.style.height='auto';
+  addCMsg('user', text); addThinking();
+  try {
+    const res = await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:chatHistory})});
+    const data = await res.json();
+    document.getElementById('thinking')?.remove();
+    const reply = data.response||'Something went wrong.';
+    addCMsg('agent', reply);
+    chatHistory.push({role:'user',content:text});
+    chatHistory.push({role:'assistant',content:reply});
+    await loadData();
+  } catch(e) {
+    document.getElementById('thinking')?.remove();
+    addCMsg('agent','Network error — is the server running?');
+  }
+  chatBusy=false; sendBtn.disabled=false; inputEl.focus();
+}
+
+loadData();
+</script>
+</body>
+</html>
