@@ -1,6 +1,7 @@
 import db
 
 def seed():
+    db.init_db()
     with db._conn() as conn:
         if db.USE_POSTGRES:
             db._exec(conn, "TRUNCATE updates, alert_responses, alerts, commitments RESTART IDENTITY CASCADE")
