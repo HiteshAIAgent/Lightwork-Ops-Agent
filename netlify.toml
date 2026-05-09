@@ -1,0 +1,36 @@
+[build]
+  publish = "public"
+  command = "echo 'static only'"
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/chat"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/commitments"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/commitments/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/alerts"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/alerts/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
