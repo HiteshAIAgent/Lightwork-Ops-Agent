@@ -1,0 +1,8 @@
+{
+  "name": "lightwork-ops-agent",
+  "version": "1.0.0",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "pg": "^8.13.0"
+  }
+}

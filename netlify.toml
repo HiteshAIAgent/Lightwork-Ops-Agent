@@ -4,6 +4,10 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions.api]
+  timeout = 26
 
 [[redirects]]
   from = "/chat"
