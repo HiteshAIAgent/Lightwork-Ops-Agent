@@ -331,7 +331,9 @@ async function callTool(name, input) {
 }
 
 async function runAgent(userInput, history = []) {
-  const client = new Anthropic();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
+  const client = new Anthropic({ apiKey });
   const messages = [...history, { role: 'user', content: userInput }];
 
   while (true) {
