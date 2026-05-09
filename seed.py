@@ -1,16 +1,16 @@
-import sqlite3
 import db
 
 def seed():
-    conn = sqlite3.connect(db.DB_PATH)
-    conn.execute("DELETE FROM updates")
-    conn.execute("DELETE FROM commitments")
-    try:
-        conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('commitments', 'updates')")
-    except Exception:
-        pass
-    conn.commit()
-    conn.close()
+    with db._conn() as conn:
+        if db.USE_POSTGRES:
+            db._exec(conn, "TRUNCATE updates, alert_responses, alerts, commitments RESTART IDENTITY CASCADE")
+        else:
+            conn.execute("DELETE FROM updates")
+            conn.execute("DELETE FROM commitments")
+            try:
+                conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('commitments', 'updates')")
+            except Exception:
+                pass
 
     db.init_db()
 

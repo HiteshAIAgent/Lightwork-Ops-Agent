@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/chat", "destination": "/api/index" },
+    { "source": "/commitments", "destination": "/api/index" },
+    { "source": "/commitments/:path*", "destination": "/api/index" },
+    { "source": "/alerts", "destination": "/api/index" },
+    { "source": "/alerts/:path*", "destination": "/api/index" }
+  ]
+}
