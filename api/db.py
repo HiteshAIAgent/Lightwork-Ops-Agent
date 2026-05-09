@@ -7,8 +7,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
-    import psycopg2
-    import psycopg2.extras
+    import pg8000
+    from urllib.parse import urlparse
     PH = "%s"
 else:
     import sqlite3
@@ -20,7 +20,15 @@ else:
 @contextmanager
 def _conn():
     if USE_POSTGRES:
-        conn = psycopg2.connect(DATABASE_URL)
+        p = urlparse(DATABASE_URL)
+        conn = pg8000.connect(
+            host=p.hostname,
+            port=p.port or 5432,
+            database=p.path.lstrip('/'),
+            user=p.username,
+            password=p.password,
+            ssl_context=True,
+        )
     else:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -36,18 +44,22 @@ def _conn():
 
 def _rows(conn, sql, params=()):
     if USE_POSTGRES:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(sql, params)
-        return [dict(r) for r in cur.fetchall()]
+        cur = conn.cursor()
+        cur.execute(sql, list(params))
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
 def _one(conn, sql, params=()):
     if USE_POSTGRES:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(sql, params)
+        cur = conn.cursor()
+        cur.execute(sql, list(params))
+        if cur.description is None:
+            return None
+        cols = [d[0] for d in cur.description]
         row = cur.fetchone()
-        return dict(row) if row else None
+        return dict(zip(cols, row)) if row else None
     row = conn.execute(sql, params).fetchone()
     return dict(row) if row else None
 
@@ -55,7 +67,7 @@ def _one(conn, sql, params=()):
 def _exec(conn, sql, params=()):
     if USE_POSTGRES:
         cur = conn.cursor()
-        cur.execute(sql, params)
+        cur.execute(sql, list(params) if params else None)
         return cur
     return conn.execute(sql, params)
 
@@ -149,7 +161,7 @@ def add_commitment(team: str, description: str, deadline: str,
     with _conn() as conn:
         if USE_POSTGRES:
             cur = conn.cursor()
-            cur.execute(sql + " RETURNING id", params)
+            cur.execute(sql + " RETURNING id", list(params))
             new_id = cur.fetchone()[0]
         else:
             cur = conn.execute(sql, params)
@@ -257,7 +269,7 @@ def create_alert(from_role: str, to_team: str, message: str) -> dict:
     with _conn() as conn:
         if USE_POSTGRES:
             cur = conn.cursor()
-            cur.execute(sql + " RETURNING id", params)
+            cur.execute(sql + " RETURNING id", list(params))
             new_id = cur.fetchone()[0]
         else:
             cur = conn.execute(sql, params)

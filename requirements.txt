@@ -2,5 +2,5 @@ anthropic
 fastapi
 uvicorn[standard]
 python-multipart
-psycopg2-binary
+pg8000
 mangum
