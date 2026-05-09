@@ -1,6 +1,5 @@
-anthropic
+anthropic==0.100.0
 fastapi
 uvicorn[standard]
 python-multipart
 pg8000
-mangum
